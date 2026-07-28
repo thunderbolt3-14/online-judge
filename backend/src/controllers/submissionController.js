@@ -1,5 +1,6 @@
 const Submission = require('../models/Submission');
 const Problem = require('../models/Problem');
+const judgeQueue = require('../config/queue');
 
 // POST /api/submissions - create a submission (status stays "queued" until Phase 5 wires up the real queue)
 const createSubmission = async (req, res) => {
@@ -21,7 +22,7 @@ const createSubmission = async (req, res) => {
       status: 'queued',
     });
 
-    // Phase 5 will replace this comment with: await judgeQueue.add('judge', { submissionId: submission._id })
+    await judgeQueue.add('judge', { submissionId: submission._id.toString() });
 
     res.status(201).json(submission);
   } catch (err) {
