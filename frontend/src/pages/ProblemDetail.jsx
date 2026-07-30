@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import Editor from '@monaco-editor/react';
 import { fetchProblemByCode } from '../store/slices/problemsSlice';
 import { createSubmission, fetchSubmission, clearCurrentSubmission } from '../store/slices/submissionsSlice';
+import VerdictDisplay from '../components/VerdictDisplay';
 
 const LANGUAGE_DEFAULTS = {
   python: '# Write your solution here\n',
@@ -11,6 +12,8 @@ const LANGUAGE_DEFAULTS = {
   javascript: '// Write your solution here\n',
   java: 'public class Main {\n    public static void main(String[] args) {\n        \n    }\n}\n',
 };
+
+const difficultyClass = (d) => (d || '').toLowerCase();
 
 const ProblemDetail = () => {
   const { code } = useParams();
@@ -21,6 +24,7 @@ const ProblemDetail = () => {
 
   const [language, setLanguage] = useState('python');
   const [sourceCode, setSourceCode] = useState(LANGUAGE_DEFAULTS.python);
+  const [authWarning, setAuthWarning] = useState(false);
   const pollRef = useRef(null);
 
   useEffect(() => {
@@ -36,9 +40,10 @@ const ProblemDetail = () => {
 
   const handleSubmit = async () => {
     if (!user) {
-      alert('Please log in to submit');
+      setAuthWarning(true);
       return;
     }
+    setAuthWarning(false);
     const result = await dispatch(createSubmission({ problemCode: code, code: sourceCode, language }));
     if (result.payload?._id) {
       pollRef.current = setInterval(() => {
@@ -53,57 +58,69 @@ const ProblemDetail = () => {
     }
   }, [submission]);
 
-  if (!current) return <p>Loading...</p>;
+  if (!current) return <p style={{ padding: 20, color: 'var(--text-muted)' }}>Loading…</p>;
 
   const { problem, sampleTestCases } = current;
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: 20 }}>
-      <Link to="/">&larr; Back to problems</Link>
-      <h1>{problem.name}</h1>
-      <p><strong>Difficulty:</strong> {problem.difficulty}</p>
-      <p style={{ whiteSpace: 'pre-wrap' }}>{problem.statement}</p>
+    <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 20px' }}>
+      <Link to="/">← Back to problems</Link>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
+        <h1 style={{ margin: 0 }}>{problem.name}</h1>
+        <span className={`tag ${difficultyClass(problem.difficulty)}`}>{problem.difficulty}</span>
+      </div>
+
+      <p style={{ whiteSpace: 'pre-wrap', color: 'var(--text-primary)', marginTop: 16 }}>{problem.statement}</p>
 
       {sampleTestCases.length > 0 && (
-        <div>
-          <h3>Sample Test Cases</h3>
+        <div style={{ marginTop: 24 }}>
+          <h3>Sample test cases</h3>
           {sampleTestCases.map((tc) => (
-            <div key={tc._id} style={{ marginBottom: 10 }}>
-              <strong>Input:</strong>
+            <div key={tc._id} className="card" style={{ marginBottom: 10 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>input</div>
               <pre>{tc.input}</pre>
-              <strong>Expected Output:</strong>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 4px' }}>expected output</div>
               <pre>{tc.expectedOutput}</pre>
             </div>
           ))}
         </div>
       )}
 
-      <h3>Your Solution</h3>
-      <select value={language} onChange={(e) => handleLanguageChange(e.target.value)}>
-        <option value="python">Python</option>
-        <option value="cpp">C++</option>
-        <option value="javascript">JavaScript</option>
-        <option value="java">Java</option>
-      </select>
+      <h3 style={{ marginTop: 28 }}>Your solution</h3>
+      <div style={{ marginBottom: 8 }}>
+        <select value={language} onChange={(e) => handleLanguageChange(e.target.value)}>
+          <option value="python">Python</option>
+          <option value="cpp">C++</option>
+          <option value="javascript">JavaScript</option>
+          <option value="java">Java</option>
+        </select>
+      </div>
 
-      <Editor
-        height="400px"
-        language={language === 'cpp' ? 'cpp' : language}
-        value={sourceCode}
-        onChange={(value) => setSourceCode(value)}
-        theme="vs-dark"
-      />
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 10, overflow: 'hidden' }}>
+        <Editor
+          height="400px"
+          language={language === 'cpp' ? 'cpp' : language}
+          value={sourceCode}
+          onChange={(value) => setSourceCode(value)}
+          theme="vs-dark"
+          options={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', minimap: { enabled: false } }}
+        />
+      </div>
 
-      <button onClick={handleSubmit} disabled={submitStatus === 'loading'} style={{ marginTop: 10 }}>
-        Submit
-      </button>
+      <div style={{ marginTop: 14 }}>
+        <button onClick={handleSubmit} disabled={submitStatus === 'loading'}>
+          {submitStatus === 'loading' ? 'Submitting…' : 'Submit'}
+        </button>
+      </div>
 
-      {submission && (
-        <div style={{ marginTop: 16, padding: 12, border: '1px solid #ccc' }}>
-          <strong>Verdict:</strong> {submission.status}
-          {submission.executionTimeMs != null && ` (${submission.executionTimeMs}ms)`}
-        </div>
+      {authWarning && (
+        <p style={{ color: 'var(--verdict-error)', fontFamily: 'var(--font-mono)', fontSize: 13, marginTop: 10 }}>
+          log in to submit a solution
+        </p>
       )}
+
+      <VerdictDisplay submission={submission} />
     </div>
   );
 };
