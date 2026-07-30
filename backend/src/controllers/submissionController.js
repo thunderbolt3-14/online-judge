@@ -54,4 +54,23 @@ const getUserSubmissions = async (req, res) => {
   }
 };
 
-module.exports = { createSubmission, getSubmission, getUserSubmissions };
+
+// GET /api/submissions/leaderboard/:problemCode - recent accepted submissions for a problem
+const getLeaderboard = async (req, res) => {
+  try {
+    const Problem = require('../models/Problem');
+    const problem = await Problem.findOne({ code: req.params.problemCode });
+    if (!problem) return res.status(404).json({ message: 'Problem not found' });
+
+    const submissions = await Submission.find({ problem: problem._id, status: 'accepted' })
+      .populate('user', 'username')
+      .sort({ executionTimeMs: 1 })
+      .limit(20);
+
+    res.json(submissions);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch leaderboard', error: err.message });
+  }
+};
+
+module.exports = { createSubmission, getSubmission, getUserSubmissions, getLeaderboard };
