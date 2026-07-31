@@ -3,8 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import Editor from '@monaco-editor/react';
 import { fetchProblemByCode } from '../store/slices/problemsSlice';
-import { createSubmission, fetchSubmission, clearCurrentSubmission } from '../store/slices/submissionsSlice';
+import { createSubmission, clearCurrentSubmission, submissionUpdated } from '../store/slices/submissionsSlice';
 import VerdictDisplay from '../components/VerdictDisplay';
+import socket from '../api/socket';
 
 const LANGUAGE_DEFAULTS = {
   python: '# Write your solution here\n',
@@ -25,12 +26,11 @@ const ProblemDetail = () => {
   const [language, setLanguage] = useState('python');
   const [sourceCode, setSourceCode] = useState(LANGUAGE_DEFAULTS.python);
   const [authWarning, setAuthWarning] = useState(false);
-  const pollRef = useRef(null);
+  const pendingSubmissionId = useRef(null);
 
   useEffect(() => {
     dispatch(fetchProblemByCode(code));
     dispatch(clearCurrentSubmission());
-    return () => clearInterval(pollRef.current);
   }, [dispatch, code]);
 
   const handleLanguageChange = (lang) => {
@@ -46,17 +46,34 @@ const ProblemDetail = () => {
     setAuthWarning(false);
     const result = await dispatch(createSubmission({ problemCode: code, code: sourceCode, language }));
     if (result.payload?._id) {
-      pollRef.current = setInterval(() => {
-        dispatch(fetchSubmission(result.payload._id));
-      }, 1500);
+      pendingSubmissionId.current = result.payload._id;
+      socket.emit('join:submission', result.payload._id);
     }
   };
 
   useEffect(() => {
-    if (submission && submission.status !== 'queued' && submission.status !== 'running') {
-      clearInterval(pollRef.current);
-    }
-  }, [submission]);
+    const handleUpdate = (payload) => {
+      dispatch(submissionUpdated(payload));
+      if (payload.status !== 'queued' && payload.status !== 'running') {
+        socket.emit('leave:submission', payload.submissionId);
+        pendingSubmissionId.current = null;
+      }
+    };
+
+    const handleReconnect = () => {
+      if (pendingSubmissionId.current) {
+        socket.emit('join:submission', pendingSubmissionId.current);
+      }
+    };
+
+    socket.on('submission:update', handleUpdate);
+    socket.on('connect', handleReconnect);
+
+    return () => {
+      socket.off('submission:update', handleUpdate);
+      socket.off('connect', handleReconnect);
+    };
+  }, [dispatch]);
 
   if (!current) return <p style={{ padding: 20, color: 'var(--text-muted)' }}>Loading…</p>;
 

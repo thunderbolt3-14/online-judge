@@ -22,12 +22,18 @@ export const fetchSubmission = createAsyncThunk('submissions/fetchOne', async (i
 const submissionsSlice = createSlice({
   name: 'submissions',
   initialState: {
-    current: null, // the submission being tracked after a fresh submit
+    current: null,
     status: 'idle',
     error: null,
   },
   reducers: {
     clearCurrentSubmission: (state) => { state.current = null; },
+    submissionUpdated: (state, action) => {
+      if (state.current && state.current._id === action.payload.submissionId) {
+        state.current.status = action.payload.status;
+        state.current.executionTimeMs = action.payload.executionTimeMs;
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -38,5 +44,5 @@ const submissionsSlice = createSlice({
   },
 });
 
-export const { clearCurrentSubmission } = submissionsSlice.actions;
+export const { clearCurrentSubmission, submissionUpdated } = submissionsSlice.actions;
 export default submissionsSlice.reducer;

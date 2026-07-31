@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { Worker } = require('bullmq');
+const Redis = require('ioredis');
 const connectDB = require('./db');
 const Submission = require('./models/Submission');
 const Problem = require('./models/Problem');
@@ -7,8 +8,19 @@ const TestCase = require('./models/TestCase');
 const { judgeTestCase } = require('./sandbox');
 
 const connection = { url: process.env.REDIS_URL };
+const publisher = new Redis(process.env.REDIS_URL);
+const UPDATES_CHANNEL = 'submission-updates';
 
 connectDB();
+
+const publishVerdict = (submissionId, status, executionTimeMs, problemCode) => {
+  publisher.publish(UPDATES_CHANNEL, JSON.stringify({
+    submissionId,
+    status,
+    executionTimeMs,
+    problemCode,
+  }));
+};
 
 // Status priority: if any test case fails, we stop and report that failure as the overall verdict.
 // "accepted" only if every test case passes.
@@ -30,6 +42,7 @@ const processJob = async (job) => {
   if (testCases.length === 0) {
     submission.status = 'runtime_error';
     await submission.save();
+    publishVerdict(submissionId, 'runtime_error', null, problem.code);
     return;
   }
 
@@ -57,6 +70,8 @@ const processJob = async (job) => {
   submission.status = finalStatus;
   submission.executionTimeMs = totalTimeMs;
   await submission.save();
+
+  publishVerdict(submissionId, finalStatus, totalTimeMs, problem.code);
 
   console.log(`Submission ${submissionId} judged: ${finalStatus}`);
 };
