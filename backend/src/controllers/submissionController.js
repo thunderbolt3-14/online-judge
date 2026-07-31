@@ -1,6 +1,7 @@
 const Submission = require('../models/Submission');
 const Problem = require('../models/Problem');
 const judgeQueue = require('../config/queue');
+const { generateHint } = require('../services/aiService');
 
 // POST /api/submissions - create a submission (status stays "queued" until Phase 5 wires up the real queue)
 const createSubmission = async (req, res) => {
@@ -73,4 +74,31 @@ const getLeaderboard = async (req, res) => {
   }
 };
 
-module.exports = { createSubmission, getSubmission, getUserSubmissions, getLeaderboard };
+// POST /api/submissions/:id/hint - AI hint for a failed submission, owner only
+const getHint = async (req, res) => {
+  try {
+    const submission = await Submission.findById(req.params.id).populate('problem');
+    if (!submission) return res.status(404).json({ message: 'Submission not found' });
+
+    if (submission.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to view this hint' });
+    }
+
+    if (['queued', 'running', 'accepted'].includes(submission.status)) {
+      return res.status(400).json({ message: 'Hints are only available for failed submissions' });
+    }
+
+    const hint = await generateHint({
+      problemStatement: submission.problem.statement,
+      code: submission.code,
+      language: submission.language,
+      status: submission.status,
+    });
+
+    res.json({ hint });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to generate hint', error: err.message });
+  }
+};
+
+module.exports = { createSubmission, getSubmission, getUserSubmissions, getLeaderboard, getHint };

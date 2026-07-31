@@ -1,5 +1,6 @@
 const Problem = require('../models/Problem');
 const TestCase = require('../models/TestCase');
+const { generateProblemDraft } = require('../services/aiService');
 
 // GET /api/problems - list all problems (no statement/testcases, just summary)
 const listProblems = async (req, res) => {
@@ -65,4 +66,20 @@ const addTestCase = async (req, res) => {
   }
 };
 
-module.exports = { listProblems, getProblem, createProblem, addTestCase };
+// POST /api/problems/generate - admin only, AI-drafted problem (not saved yet)
+const generateProblem = async (req, res) => {
+  try {
+    const { topic, difficulty } = req.body;
+
+    if (!topic || !difficulty) {
+      return res.status(400).json({ message: 'topic and difficulty are required' });
+    }
+
+    const draft = await generateProblemDraft({ topic, difficulty });
+    res.json(draft);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to generate problem draft', error: err.message });
+  }
+};
+
+module.exports = { listProblems, getProblem, createProblem, addTestCase, generateProblem };

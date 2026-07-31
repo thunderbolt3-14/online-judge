@@ -40,7 +40,10 @@ const Home = () => {
             signed in as <strong style={{ color: 'var(--accent-action)' }}>{user.username}</strong>
             <span style={{ color: 'var(--text-muted)' }}> ({user.role})</span>
           </span>
-          <button className="secondary" onClick={() => dispatch(logout())}>Log out</button>
+          <span style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            {user.role === 'admin' && <Link to="/admin">Admin panel</Link>}
+            <button className="secondary" onClick={() => dispatch(logout())}>Log out</button>
+          </span>
         </div>
       ) : (
         <div className="card" style={{ marginBottom: 28 }}>
