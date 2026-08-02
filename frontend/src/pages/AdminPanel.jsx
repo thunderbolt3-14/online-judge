@@ -26,12 +26,6 @@ const AdminPanel = () => {
     dispatch(fetchProblems());
   }, [dispatch]);
 
-  useEffect(() => {
-    if (problems.length > 0 && !plagProblemCode) {
-      setPlagProblemCode(problems[0].code);
-    }
-  }, [problems, plagProblemCode]);
-
   if (!user || user.role !== 'admin') {
     return (
       <div style={{ maxWidth: 700, margin: '0 auto', padding: 40 }}>
@@ -92,7 +86,7 @@ const AdminPanel = () => {
     setPlagError('');
     setPlagResult(null);
     try {
-      const res = await api.get(`/problems/${plagProblemCode}/plagiarism`, {
+      const res = await api.get(`/problems/${effectivePlagCode}/plagiarism`, {
         params: { threshold: plagThreshold },
       });
       setPlagResult(res.data);
@@ -107,6 +101,8 @@ const AdminPanel = () => {
     if (score >= 60) return 'var(--verdict-pending)';
     return 'var(--text-primary)';
   };
+
+  const effectivePlagCode = plagProblemCode || problems[0]?.code || '';
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '40px 20px' }}>
@@ -191,7 +187,7 @@ const AdminPanel = () => {
       <h1 style={{ marginTop: 48 }}>Plagiarism Check</h1>
 
       <div className="card" style={{ marginBottom: 20 }}>
-        <select value={plagProblemCode} onChange={(e) => setPlagProblemCode(e.target.value)} style={{ marginBottom: 10 }}>
+        <select value={effectivePlagCode} onChange={(e) => setPlagProblemCode(e.target.value)} style={{ marginBottom: 10 }}>
           {problems.map((p) => (
             <option key={p._id} value={p.code}>{p.name}</option>
           ))}
@@ -209,7 +205,7 @@ const AdminPanel = () => {
           />
         </div>
 
-        <button onClick={handleRunPlagiarismCheck} disabled={plagStatus === 'loading' || !plagProblemCode}>
+        <button onClick={handleRunPlagiarismCheck} disabled={plagStatus === 'loading' || !effectivePlagCode}>
           {plagStatus === 'loading' ? 'Checking…' : 'Run check'}
         </button>
 

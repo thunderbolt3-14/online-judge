@@ -7,6 +7,8 @@ const languageConfig = require('./languageConfig');
 const docker = new Docker();
 
 // Runs a single command inside a fresh container, with resource limits and a hard timeout.
+// stdin is provided via a file mounted into the container and shell-redirected in,
+// rather than streamed over the attach socket (which is unreliable about signaling EOF).
 // Returns { stdout, stderr, exitCode, timedOut }
 const runInContainer = ({ image, cmd, hostDir, containerDir, memoryLimitKb, timeLimitMs, stdinData }) => {
   return new Promise(async (resolve, reject) => {
@@ -15,13 +17,19 @@ const runInContainer = ({ image, cmd, hostDir, containerDir, memoryLimitKb, time
     let timeoutHandle;
 
     try {
+      if (stdinData !== undefined) {
+        fs.writeFileSync(path.join(hostDir, 'input.txt'), stdinData);
+      }
+
+      const shellCmd = stdinData !== undefined
+        ? `${cmd.join(' ')} < ${path.posix.join(containerDir, 'input.txt')}`
+        : cmd.join(' ');
+
       container = await docker.createContainer({
         Image: image,
-        Cmd: cmd,
+        Cmd: ['sh', '-c', shellCmd],
         WorkingDir: containerDir,
         Tty: false,
-        OpenStdin: true,
-        StdinOnce: true,
         HostConfig: {
           Binds: [`${hostDir}:${containerDir}`],
           Memory: memoryLimitKb * 1024,
@@ -32,7 +40,7 @@ const runInContainer = ({ image, cmd, hostDir, containerDir, memoryLimitKb, time
         },
       });
 
-      const stream = await container.attach({ stream: true, stdin: true, stdout: true, stderr: true });
+      const stream = await container.attach({ stream: true, stdout: true, stderr: true });
 
       let stdout = '';
       let stderr = '';
@@ -43,11 +51,6 @@ const runInContainer = ({ image, cmd, hostDir, containerDir, memoryLimitKb, time
       );
 
       await container.start();
-
-      if (stdinData) {
-        stream.write(stdinData);
-      }
-      stream.end();
 
       timeoutHandle = setTimeout(async () => {
         timedOut = true;
