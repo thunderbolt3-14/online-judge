@@ -1,8 +1,9 @@
 const Problem = require('../models/Problem');
 const TestCase = require('../models/TestCase');
+const Submission = require('../models/Submission');
 const { generateProblemDraft } = require('../services/aiService');
+const { computeFingerprint, similarity } = require('../services/plagiarismService');
 
-// GET /api/problems - list all problems (no statement/testcases, just summary)
 const listProblems = async (req, res) => {
   try {
     const problems = await Problem.find().select('name code difficulty isPractice createdAt');
@@ -12,7 +13,6 @@ const listProblems = async (req, res) => {
   }
 };
 
-// GET /api/problems/:code - single problem + visible sample test cases
 const getProblem = async (req, res) => {
   try {
     const problem = await Problem.findOne({ code: req.params.code });
@@ -26,7 +26,6 @@ const getProblem = async (req, res) => {
   }
 };
 
-// POST /api/problems - admin only, create a problem
 const createProblem = async (req, res) => {
   try {
     const { name, code, statement, difficulty, isPractice, timeLimitMs, memoryLimitKb } = req.body;
@@ -49,7 +48,6 @@ const createProblem = async (req, res) => {
   }
 };
 
-// POST /api/problems/:code/testcases - admin only, add a test case
 const addTestCase = async (req, res) => {
   try {
     const { input, expectedOutput, isHidden } = req.body;
@@ -66,7 +64,6 @@ const addTestCase = async (req, res) => {
   }
 };
 
-// POST /api/problems/generate - admin only, AI-drafted problem (not saved yet)
 const generateProblem = async (req, res) => {
   try {
     const { topic, difficulty } = req.body;
@@ -82,4 +79,48 @@ const generateProblem = async (req, res) => {
   }
 };
 
-module.exports = { listProblems, getProblem, createProblem, addTestCase, generateProblem };
+const checkPlagiarism = async (req, res) => {
+  try {
+    const threshold = Number(req.query.threshold) || 60;
+    const problem = await Problem.findOne({ code: req.params.code });
+    if (!problem) return res.status(404).json({ message: 'Problem not found' });
+
+    const submissions = await Submission.find({ problem: problem._id })
+      .populate('user', 'username')
+      .sort({ createdAt: -1 });
+
+    const latestByUser = new Map();
+    for (const sub of submissions) {
+      const userId = sub.user._id.toString();
+      if (!latestByUser.has(userId)) latestByUser.set(userId, sub);
+    }
+
+    const entries = Array.from(latestByUser.values());
+    const fingerprints = entries.map((sub) => ({
+      submission: sub,
+      fingerprint: computeFingerprint(sub.code),
+    }));
+
+    const matches = [];
+    for (let i = 0; i < fingerprints.length; i++) {
+      for (let j = i + 1; j < fingerprints.length; j++) {
+        const score = similarity(fingerprints[i].fingerprint, fingerprints[j].fingerprint);
+        if (score >= threshold) {
+          matches.push({
+            score,
+            submissionA: { id: fingerprints[i].submission._id, username: fingerprints[i].submission.user.username },
+            submissionB: { id: fingerprints[j].submission._id, username: fingerprints[j].submission.user.username },
+          });
+        }
+      }
+    }
+
+    matches.sort((a, b) => b.score - a.score);
+
+    res.json({ problemCode: problem.code, checkedSubmissions: entries.length, matches });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to run plagiarism check', error: err.message });
+  }
+};
+
+module.exports = { listProblems, getProblem, createProblem, addTestCase, generateProblem, checkPlagiarism };
