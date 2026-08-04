@@ -45,6 +45,8 @@ const generateProblemDraft = async ({ topic, difficulty }) => {
     responseMimeType: 'application/json',
   });
 
+    console.log('[DEBUG] raw Gemini response:', raw);
+
   return JSON.parse(raw);
 };
 
