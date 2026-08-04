@@ -6,12 +6,14 @@ const Submission = require('./models/Submission');
 const Problem = require('./models/Problem');
 const TestCase = require('./models/TestCase');
 const { judgeTestCase } = require('./sandbox');
+const { judgeDuration, submissionsTotal, startMetricsServer } = require('./metrics');
 
 const connection = { url: process.env.REDIS_URL };
 const publisher = new Redis(process.env.REDIS_URL);
 const UPDATES_CHANNEL = 'submission-updates';
 
 connectDB();
+startMetricsServer();
 
 const publishVerdict = (submissionId, status, executionTimeMs, problemCode) => {
   publisher.publish(UPDATES_CHANNEL, JSON.stringify({
@@ -22,10 +24,9 @@ const publishVerdict = (submissionId, status, executionTimeMs, problemCode) => {
   }));
 };
 
-// Status priority: if any test case fails, we stop and report that failure as the overall verdict.
-// "accepted" only if every test case passes.
 const processJob = async (job) => {
   const { submissionId } = job.data;
+  const endTimer = judgeDuration.startTimer();
 
   const submission = await Submission.findById(submissionId);
   if (!submission) {
@@ -43,6 +44,8 @@ const processJob = async (job) => {
     submission.status = 'runtime_error';
     await submission.save();
     publishVerdict(submissionId, 'runtime_error', null, problem.code);
+    endTimer({ language: submission.language });
+    submissionsTotal.inc({ status: 'runtime_error' });
     return;
   }
 
@@ -61,9 +64,9 @@ const processJob = async (job) => {
 
     totalTimeMs += result.executionTimeMs || 0;
 
-   if (result.status !== 'accepted') {
+    if (result.status !== 'accepted') {
       finalStatus = result.status;
-      break; // stop at first failing test case
+      break;
     }
   }
 
@@ -72,6 +75,8 @@ const processJob = async (job) => {
   await submission.save();
 
   publishVerdict(submissionId, finalStatus, totalTimeMs, problem.code);
+  endTimer({ language: submission.language });
+  submissionsTotal.inc({ status: finalStatus });
 
   console.log(`Submission ${submissionId} judged: ${finalStatus}`);
 };
