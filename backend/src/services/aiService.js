@@ -41,7 +41,7 @@ const generateProblemDraft = async ({ topic, difficulty }) => {
   const raw = await callGemini({
     systemInstruction,
     prompt,
-    maxOutputTokens: 2048,
+    maxOutputTokens: 4096,
     responseMimeType: 'application/json',
   });
 
