@@ -38,14 +38,26 @@ const generateProblemDraft = async ({ topic, difficulty }) => {
 
   const prompt = `Generate a ${difficulty} difficulty problem about: ${topic}`;
 
-  const raw = await callGemini({
-    systemInstruction,
-    prompt,
-    maxOutputTokens: 8192,
-    responseMimeType: 'application/json',
-  });
+  const MAX_ATTEMPTS = 3;
+  let lastError;
 
-  return JSON.parse(raw);
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const raw = await callGemini({
+      systemInstruction,
+      prompt,
+      maxOutputTokens: 8192,
+      responseMimeType: 'application/json',
+    });
+
+    try {
+      return JSON.parse(raw);
+    } catch (err) {
+      lastError = err;
+      console.error(`Problem draft JSON parse failed (attempt ${attempt}/${MAX_ATTEMPTS}):`, err.message);
+    }
+  }
+
+  throw new Error(`Failed to generate valid problem JSON after ${MAX_ATTEMPTS} attempts: ${lastError.message}`);
 };
 
 module.exports = { generateHint, generateProblemDraft };
