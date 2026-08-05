@@ -153,3 +153,10 @@ Execute these steps whenever the EC2 instance is recreated and `terraform apply`
 8. **Verify Access:**
    * App: `https://<sslip-hostname>`
    * Grafana: `https://<sslip-hostname>/grafana/`
+
+
+### Grafana Gotchas (Phase 11c)
+- `GF_SERVER_PROTOCOL` must stay `http` — Grafana's own listener never terminates TLS; Nginx does that and proxies internally over plain HTTP. Setting this to `https` causes: "Client sent an HTTP request to an HTTPS server."
+- Nginx's `location /grafana/` block must `proxy_pass http://` (not `https://`) to match.
+- `GF_SECURITY_ADMIN_USER`/`GF_SECURITY_ADMIN_PASSWORD` only seed the admin account on first-ever DB init — they do nothing on `--force-recreate` if the volume persists. To reset a forgotten password:
+  `docker exec -it oj-grafana grafana cli admin reset-admin-password <newpass>`
