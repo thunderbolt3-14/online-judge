@@ -1,6 +1,6 @@
 # Environment File Templates & Deployment Guide
 
-This document serves as the master reference for configuring environment variables, setting up Nginx, executing redeployments, and fixing secret scanning push rejections.
+This document serves as the  reference for configuring environment variables, setting up Nginx, executing redeployments, and fixing secret scanning push rejections.
 
 > **CRITICAL SECURITY NOTE:** 
 > NEVER commit real passwords, JWT secrets, or API keys to this file or any Git repository. Always fill in real values locally on the production server (`.env` files) and keep placeholders in this template.
