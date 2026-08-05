@@ -34,18 +34,16 @@ const generateHint = async ({ problemStatement, code, language, status }) => {
 };
 
 const generateProblemDraft = async ({ topic, difficulty }) => {
-  const systemInstruction = 'You generate competitive programming problems for an online judge. Respond only with valid JSON matching this exact shape: {"name": string, "code": string (short uppercase snake-case identifier), "statement": string, "difficulty": "Easy"|"Medium"|"Hard", "timeLimitMs": number, "memoryLimitKb": number, "sampleTestCases": [{"input": string, "expectedOutput": string}]}. Include 2 to 3 sample test cases.';
+  const systemInstruction = 'You generate competitive programming problems for an online judge. Respond only with valid JSON matching this exact shape: {"name": string, "code": string (short uppercase snake-case identifier), "statement": string, "difficulty": "Easy"|"Medium"|"Hard", "timeLimitMs": number, "memoryLimitKb": number, "sampleTestCases": [{"input": string, "expectedOutput": string}]}. Keep the statement concise: under 120 words, plain problem description plus input/output format, no elaborate backstory. Include exactly 2 sample test cases.';
 
   const prompt = `Generate a ${difficulty} difficulty problem about: ${topic}`;
 
   const raw = await callGemini({
     systemInstruction,
     prompt,
-    maxOutputTokens: 4096,
+    maxOutputTokens: 8192,
     responseMimeType: 'application/json',
   });
-
-    console.log('[DEBUG] raw Gemini response:', raw);
 
   return JSON.parse(raw);
 };
