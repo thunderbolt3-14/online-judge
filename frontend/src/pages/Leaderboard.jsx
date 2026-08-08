@@ -9,26 +9,24 @@ const Leaderboard = () => {
   const [selectedCode, setSelectedCode] = useState('');
   const [entries, setEntries] = useState([]);
 
-  useEffect(() => {
-    if (problems.length > 0 && !selectedCode) {
-      setSelectedCode(problems[0].code);
-    }
-  }, [problems, selectedCode]);
+  // Derived during render instead of via an effect + setState, so we avoid
+  // the extra cascading render that a synchronous setState-in-effect causes.
+  const effectiveSelectedCode = selectedCode || (problems.length > 0 ? problems[0].code : '');
 
   useEffect(() => {
-    if (!selectedCode) return;
-    api.get(`/submissions/leaderboard/${selectedCode}`).then((res) => setEntries(res.data));
-    socket.emit('join:leaderboard', selectedCode);
+    if (!effectiveSelectedCode) return;
+    api.get(`/submissions/leaderboard/${effectiveSelectedCode}`).then((res) => setEntries(res.data));
+    socket.emit('join:leaderboard', effectiveSelectedCode);
     return () => {
-      socket.emit('leave:leaderboard', selectedCode);
+      socket.emit('leave:leaderboard', effectiveSelectedCode);
     };
-  }, [selectedCode]);
+  }, [effectiveSelectedCode]);
 
   useEffect(() => {
-    if (!selectedCode) return;
+    if (!effectiveSelectedCode) return;
 
     const handleLeaderboardUpdate = (payload) => {
-      if (payload.problemCode !== selectedCode) return;
+      if (payload.problemCode !== effectiveSelectedCode) return;
       setEntries((prev) => {
         const withoutDuplicate = prev.filter((e) => e._id !== payload.entry._id);
         return [...withoutDuplicate, payload.entry]
@@ -38,7 +36,7 @@ const Leaderboard = () => {
     };
 
     const handleReconnect = () => {
-      socket.emit('join:leaderboard', selectedCode);
+      socket.emit('join:leaderboard', effectiveSelectedCode);
     };
 
     socket.on('leaderboard:update', handleLeaderboardUpdate);
@@ -48,14 +46,14 @@ const Leaderboard = () => {
       socket.off('leaderboard:update', handleLeaderboardUpdate);
       socket.off('connect', handleReconnect);
     };
-  }, [selectedCode]);
+  }, [effectiveSelectedCode]);
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: 20 }}>
       <Link to="/">&larr; Back to problems</Link>
       <h1>Leaderboard</h1>
 
-      <select value={selectedCode} onChange={(e) => setSelectedCode(e.target.value)}>
+      <select value={effectiveSelectedCode} onChange={(e) => setSelectedCode(e.target.value)}>
         {problems.map((p) => (
           <option key={p._id} value={p.code}>{p.name}</option>
         ))}
