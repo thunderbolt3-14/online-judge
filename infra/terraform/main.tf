@@ -25,12 +25,12 @@ data "aws_ami" "ubuntu" {
 }
 
 resource "aws_key_pair" "deployer" {
-  key_name   = "${var.project_name}-key"
+  key_name   = "${local.name_prefix}-key"
   public_key = file(var.ssh_public_key_path)
 }
 
 resource "aws_security_group" "app" {
-  name        = "${var.project_name}-sg"
+  name        = "${local.name_prefix}-sg"
   description = "Security group for the online judge EC2 instance"
   vpc_id      = data.aws_vpc.default.id
 
@@ -67,12 +67,13 @@ resource "aws_security_group" "app" {
   }
 
   tags = {
-    Name = "${var.project_name}-sg"
+    Name        = "${local.name_prefix}-sg"
+    Environment = var.environment
   }
 }
 
 resource "aws_iam_role" "ec2_role" {
-  name = "${var.project_name}-ec2-role"
+  name = "${local.name_prefix}-ec2-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -84,6 +85,10 @@ resource "aws_iam_role" "ec2_role" {
       }
     }]
   })
+
+  tags = {
+    Environment = var.environment
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
@@ -92,13 +97,13 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
 }
 
 resource "aws_iam_instance_profile" "ec2_profile" {
-  name = "${var.project_name}-ec2-profile"
+  name = "${local.name_prefix}-ec2-profile"
   role = aws_iam_role.ec2_role.name
 }
 
 resource "aws_instance" "app" {
   ami                         = data.aws_ami.ubuntu.id
-  instance_type               = var.instance_type
+  instance_type               = local.resolved_instance_type
   subnet_id                   = data.aws_subnets.default.ids[0]
   vpc_security_group_ids      = [aws_security_group.app.id]
   key_name                    = aws_key_pair.deployer.key_name
@@ -111,7 +116,8 @@ resource "aws_instance" "app" {
   }
 
   tags = {
-    Name = "${var.project_name}-server"
+    Name        = "${local.name_prefix}-server"
+    Environment = var.environment
   }
 }
 
@@ -120,6 +126,7 @@ resource "aws_eip" "app" {
   domain   = "vpc"
 
   tags = {
-    Name = "${var.project_name}-eip"
+    Name        = "${local.name_prefix}-eip"
+    Environment = var.environment
   }
 }
