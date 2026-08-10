@@ -35,6 +35,8 @@ const AdminPanel = () => {
     );
   }
 
+  <Link to="/analytics">View Analytics &rarr;</Link>
+
   const handleGenerate = async () => {
     setGenStatus('loading');
     setError('');
