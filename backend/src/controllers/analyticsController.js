@@ -44,7 +44,7 @@ exports.getAnalytics = async (req, res) => {
         { $group: { _id: '$language', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
-      User.countDocuments(),
+      User.countDocuments({ createdAt: { $gte: launchDate } }),
       Submission.distinct('user', { submittedAt: { $gte: windowStart7d } }),
       Submission.distinct('user', { submittedAt: { $gte: windowStart30d } }),
     ]);
