@@ -70,6 +70,11 @@ const Analytics = () => {
     <div style={{ maxWidth: 900, margin: '0 auto', padding: 20 }}>
       <Link to="/">&larr; Back to problems</Link>
       <h1>Analytics</h1>
+      {data?.launchDate && (
+        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+          Showing data since {new Date(data.launchDate).toLocaleDateString()}
+        </p>
+      )}
 
       {status === 'loading' && <p>Loading...</p>}
       {status === 'error' && <p style={{ color: 'var(--verdict-error)' }}>{error}</p>}
