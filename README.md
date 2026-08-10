@@ -20,8 +20,6 @@ A full-stack competitive programming judge — write code, submit it, get a real
 
 ## Screenshots
 
-*(add screenshots here once you have them — problem list, code editor with Monaco, a live verdict coming in, the leaderboard, and the Grafana dashboard all make good ones)*
-
 ---
 
 ## Architecture
@@ -166,8 +164,8 @@ Deliberate scope decisions for a portfolio project, not oversights — flagged h
 - [x] Monitoring (Prometheus + Grafana)
 - [x] CI/CD (GitHub Actions — lint/build + automated production deploy)
 - [x] Usage analytics dashboard
-- [x] Real usage / user feedback
-- [x] Captured performance numbers under genuine load
+- [] Real usage / user feedback
+- [] Captured performance numbers under genuine load
 
 ---
 
